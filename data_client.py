@@ -1,10 +1,12 @@
 import quandl
 from repoze.lru import lru_cache
+import pandas_datareader as pdr
 
 _us_equity_eod_vendor = "WIKI/"
 
 class data_client:
     name = "Default data vendor"
+    ohlc_columns = ["Open","High","Low","Close","Volume"]
     def get_raw_ts(self,*args):
         raise NotImplementedError
     def get_daily(self, *args):
@@ -22,14 +24,14 @@ class data_client:
 class quandl_client(data_client):
     name = "Quandl"
     vendor = None
-    ohlc_columns = ["Open","High","Low","Close","Volume"]
     ohlc_adjust_columns = ["Adj. Open","Adj. High","Adj. Low","Adj. Close", "Adj. Volume"]
-    columns_map = dict(zip(ohlc_adjust_columns, ohlc_columns))
+    columns_map = None
     
     def __init__(self,vendor_prefix):
         if vendor_prefix == "" or "/" not in vendor_prefix:
             raise ValueError("Vendor prefix '{0}' is invalid".format(vendor_prefix))
         self.vendor = vendor_prefix
+        self.columns_map = dict(zip(self.ohlc_adjust_columns, self.ohlc_columns))
     
     @lru_cache(100)
     def get_raw_ts(self, ticker, start = None, end = None):
@@ -57,10 +59,37 @@ class quandl_client(data_client):
         return df["Close"]
     
 
+class yahoo_client(data_client):
+    name = "Yahoo"
+    ohlc_adjust_columns = ["Adj. Open","Adj. High","Adj. Low","Adj. Close", "Adj. Volume"]
+    
+    @lru_cache(100)
+    def get_raw_ts(self, ticker, start = None, end = None):
+        df =  pdr.get_data_yahoo(ticker, start, end)
+        return df
+        
+    def get_daily(self, ticker, start = None, end = None):
+        df = self.get_raw_ts(ticker, start, end)
+        ts =df[self.ohlc_columns]
+        return ts
+    
+    def get_adj_factor(self, ticker, start = None, end = None):
+        df = self.get_raw_ts(ticker, start, end)
+        ts = df["Adj Close"] / df["Close"]
+        return ts
+        
+    def get_daily_adjusted(self, ticker, start = None, end = None):
+        df = self.get_raw_ts(ticker, start, end)
+        adj_factor = self.get_adj_factor(ticker, start, end)
+        df = df[self.ohlc_columns]
+        ts = df.mul(adj_factor)
+        return ts
+        
+        
+        
 quandl_us_eod_client = quandl_client(_us_equity_eod_vendor)
+yahoo_finance = yahoo_client()
 
 # start_date = "2015-12-31"
 # end_date = "2016-12-31"
-
-
-# price = client.get_daily_adjusted("FB", None, None)
+# price = quandl_us_eod_client.get_daily_adjusted("FB", None, None)
