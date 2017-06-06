@@ -2,8 +2,6 @@ import quandl
 from repoze.lru import lru_cache
 import pandas_datareader as pdr
 
-_us_equity_eod_vendor = "WIKI/"
-
 class data_client:
     name = "Default data vendor"
     ohlc_columns = ["Open","High","Low","Close","Volume"]
@@ -86,9 +84,9 @@ class yahoo_client(data_client):
         return ts
         
         
-        
+_us_equity_eod_vendor = "WIKI/"        
 quandl_us_eod_client = quandl_client(_us_equity_eod_vendor)
-yahoo_finance = yahoo_client()
+yahoo_finance_client = yahoo_client()
 
 # start_date = "2015-12-31"
 # end_date = "2016-12-31"
